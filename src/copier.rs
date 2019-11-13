@@ -7,7 +7,7 @@ use std::io;
 use std::fs::{self, File, DirEntry};
 use std::path::Path;
 
-type GenError = Box<std::error::Error>;
+type GenError = Box<dyn std::error::Error>;
 pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
@@ -28,7 +28,7 @@ impl Copier {
         self.visit_dirs(dir, t_dir, &|f, t| self.copy_direntry(f, t))
     }
 
-    fn visit_dirs(&self, dir: &Path, tgt_dir: &Path, cb: &Fn(&DirEntry, &Path)->GenResult<()>) -> GenResult<()> {
+    fn visit_dirs(&self, dir: &Path, tgt_dir: &Path, cb: &dyn Fn(&DirEntry, &Path)->GenResult<()>) -> GenResult<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
@@ -89,8 +89,7 @@ impl Copier {
             Ok(())
         } else {
             // TODO we should not need the GenError box
-            Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, 
-                format!("Problem with file: {}", p)))
+            Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, format!("Problem with file: {:?}", p.as_ref()))))
         }
     }
 }
