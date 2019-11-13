@@ -1,0 +1,19 @@
+[package]
+name = "phototools"
+version = "0.1.0"
+authors = ["David Bosschaert <david.bosschaert@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+kamadak-exif = "0.3.1"
+chrono = "0.4"
+regex = "1"
+filetime = "0.2"
+
+[profile.release]
+opt-level = 'z'  # Optimize for size.
+lto = true
+panic = 'abort'
+codegen-units = 1
+
+# Also: strip <binary_name>
