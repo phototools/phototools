@@ -52,6 +52,10 @@ impl PhotoHandler {
 mod tests {
     use super::*;
     use crate::testtools;
+    use chrono::DateTime;
+    use chrono::offset::Utc;
+    use std::io;
+    use std::fs;
     
     #[test]
     fn test_photo_gps_date_time() {
@@ -60,8 +64,15 @@ mod tests {
     }
 
     #[test]
-    fn test_photo_date_time() {
-        let f1 = File::open(testtools::get_base_dir() + "src/test/NO_METADATA.JPEG").unwrap();
-        assert_eq!("2019-08-09 21:06:27", PhotoHandler::get_date_time(&f1));
+    fn test_photo_date_time() -> io::Result<()> { 
+        let filename = testtools::get_base_dir() + "src/test/NO_METADATA.JPEG";
+        let f1 = File::open(&filename)?;
+        let md = fs::metadata(&filename)?;
+        let created = md.created()?;
+        let ct: DateTime<Utc> = DateTime::from(created);
+        let dt = ct.format("%Y-%m-%d %T");
+        let expected = format!("{}", dt);
+        assert_eq!(expected, PhotoHandler::get_date_time(&f1));
+        Ok(())
     }
 }
