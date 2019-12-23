@@ -68,6 +68,10 @@ impl VideoHandler {
 mod tests {
     use super::*;
     use crate::testtools;
+    use chrono::DateTime;
+    use chrono::offset::Utc;
+    use std::fs;
+    use std::io;
 
     #[test]
     fn test_video_date_time_metadata() {
@@ -77,9 +81,13 @@ mod tests {
     }
 
     #[test]
-    fn test_video_date_time_file() {
-        let s = testtools::get_base_dir() + "src/test/NO_METADATA.M4V";
-        let p1 = Path::new(s.as_str());
-        assert_eq!("2019-08-09 21:14:03", VideoHandler::new().get_date_time(p1).unwrap());
+    fn test_video_date_time_file() -> io::Result<()> {
+        let filename = testtools::get_base_dir() + "src/test/NO_METADATA.M4V";
+        let p1 = Path::new(filename.as_str());
+        let md = fs::metadata(&filename)?;
+        let created: DateTime<Utc> = DateTime::from(md.created()?);
+        let expected = format!("{}", created.format("%Y-%m-%d %T"));
+        assert_eq!(expected, VideoHandler::new().get_date_time(p1)?);
+        Ok(())
     }
 }

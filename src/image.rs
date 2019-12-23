@@ -68,10 +68,8 @@ mod tests {
         let filename = testtools::get_base_dir() + "src/test/NO_METADATA.JPEG";
         let f1 = File::open(&filename)?;
         let md = fs::metadata(&filename)?;
-        let created = md.created()?;
-        let ct: DateTime<Utc> = DateTime::from(created);
-        let dt = ct.format("%Y-%m-%d %T");
-        let expected = format!("{}", dt);
+        let created: DateTime<Utc> = DateTime::from(md.created()?);
+        let expected = format!("{}", created.format("%Y-%m-%d %T"));
         assert_eq!(expected, PhotoHandler::get_date_time(&f1));
         Ok(())
     }
