@@ -77,7 +77,24 @@ impl Copier {
             let src_file: &str = &p.as_ref().to_string_lossy();
             let target_dir = target_dir.to_string_lossy().into_owned() + "/" + &ts_date;
             fs::create_dir_all(&target_dir)?;
-            let target_file = target_dir + "/" + &stem;
+            let org_target_file = target_dir + "/" + &stem;
+
+            let mut counter = 1;
+            let mut path = Path::new(&org_target_file);
+            let mut target_file = org_target_file.clone();
+            while path.exists() {
+                if Copier::identical_file(&p.as_ref(), &path) {
+                    println!("Identical file already exists {}", target_file);
+                    return Ok(());
+                }
+
+                // if target file exists, add _001
+                target_file = format!("{}_{:03}", org_target_file, counter);
+                path = Path::new(&target_file);
+                counter += 1;
+            }
+
+
             println!("Copying {} to {}", src_file, target_file);
             fs::copy(src_file, &target_file)?;
 
@@ -91,6 +108,15 @@ impl Copier {
             // TODO we should not need the GenError box
             Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, format!("Problem with file: {:?}", p.as_ref()))))
         }
+    }
+
+    fn identical_file(p1: &Path, p2: &Path) -> bool {
+        if let Ok(md1) = fs::metadata(p1) {
+            if let Ok(md2) = fs::metadata(p2) {
+                return md1.len() == md2.len();
+            }
+        }
+        false
     }
 }
 
@@ -151,9 +177,11 @@ mod tests {
 
         // Copy file from different directory. File has the same name, but different content
         // this should create a separate file 
+        let target_dir_b = td.clone() + "test_photo2";
+        copier.copy(&source_dir_a, &target_dir_b).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
-        copier.copy(&source_dir_b, &target_dir).unwrap();
-        let file = check_dir_names(&subdir, &["myimg.jpg", "myimg_01.jpg"]);
+        copier.copy(&source_dir_b, &target_dir_b).unwrap();
+        let file = check_dir_names(&subdir, &["myimg.jpg", "myimg_001.jpg"]);
         assert_eq!(204636, get_file_size(&file).unwrap());
         // check second file size too TODO
 
