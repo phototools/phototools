@@ -5,10 +5,11 @@ authors = ["David Bosschaert <david.bosschaert@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-kamadak-exif = "0.3.1"
+clap = "2"
 chrono = "0.4"
-regex = "1"
 filetime = "0.2"
+kamadak-exif = "0.3.1"
+regex = "1"
 
 [profile.release]
 opt-level = 'z'  # Optimize for size.
