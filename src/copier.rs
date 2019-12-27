@@ -88,8 +88,17 @@ impl Copier {
                     return Ok(());
                 }
 
+                let base;
+                let ext;
+                if let Some(idx) = org_target_file.find('.') {
+                    base = &org_target_file[..idx];
+                    ext = &org_target_file[idx..];
+                } else {
+                    base = &org_target_file;
+                    ext = "";
+                }
                 // if target file exists, add _001
-                target_file = format!("{}_{:03}", org_target_file, counter);
+                target_file = format!("{}_{:03}{}", base, counter, ext);
                 path = Path::new(&target_file);
                 counter += 1;
             }
@@ -111,6 +120,7 @@ impl Copier {
     }
 
     fn identical_file(p1: &Path, p2: &Path) -> bool {
+        // TODO better file compare, also based on content...
         if let Ok(md1) = fs::metadata(p1) {
             if let Ok(md2) = fs::metadata(p2) {
                 return md1.len() == md2.len();
@@ -181,7 +191,8 @@ mod tests {
         copier.copy(&source_dir_a, &target_dir_b).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
         copier.copy(&source_dir_b, &target_dir_b).unwrap();
-        let file = check_dir_names(&subdir, &["myimg.jpg", "myimg_001.jpg"]);
+        let subdir2 = check_dir_name(&target_dir_b, "2019-04-27");
+        let file = check_dir_names(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
         assert_eq!(204636, get_file_size(&file).unwrap());
         // check second file size too TODO
 
