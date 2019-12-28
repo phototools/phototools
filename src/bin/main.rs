@@ -3,6 +3,7 @@ extern crate clap;
 use clap::{Arg, ArgMatches, App, SubCommand};
 use phototools::copier::Copier;
 
+use std::collections::HashMap;
 use std::process;
 
 type GenError = Box<dyn std::error::Error>;
@@ -32,14 +33,14 @@ fn main() {
     let verbosity = matches.occurrences_of("v");
     println!("Verbosity: {}", verbosity);
 
-    if let Some(matches) = matches.subcommand_matches("copy") {
+    if let Some(copy_matches) = matches.subcommand_matches("copy") {
         // Copy operation
-        let cfg = CopyConfig::from(matches).unwrap_or_else(|err| {
+        let cfg = CopyConfig::from(&matches, copy_matches).unwrap_or_else(|err| {
             println!("Problem initializing with arguments: {}", err);
             process::exit(1);
         });
         println!("Using configuration {:?}", cfg);
-        // copy(cfg);
+        copy(cfg);
     }
 }
 
@@ -47,47 +48,29 @@ fn main() {
 struct CopyConfig {
     from_dir: String,
     to_dir: String,
-    min_size: u32
+    min_size: u32,
+    verbosity: u8
 }
 
 impl CopyConfig {
-    fn from(m: &ArgMatches) -> Result<CopyConfig, GenError> {
-        let min_size_str = m.value_of("minimum size").unwrap_or("500");
-        let src_dir = m.value_of("source directory").unwrap();
-        let dst_dir = m.value_of("destination directory").unwrap();
+    fn from(gen_matches: &ArgMatches, copy_matches: &ArgMatches) -> Result<CopyConfig, GenError> {
+        let min_size_str = copy_matches.value_of("minimum size").unwrap_or("500");
+        let src_dir = copy_matches.value_of("source directory").unwrap();
+        let dst_dir = copy_matches.value_of("destination directory").unwrap();
         let min_size = min_size_str.parse::<u32>()?;
 
         Ok(CopyConfig { 
             from_dir: String::from(src_dir), 
             to_dir: String::from(dst_dir),
-            min_size
+            min_size,
+            verbosity: gen_matches.occurrences_of("v") as u8
         })
     }
-
-    /*
-    fn new(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() != 4 {
-            return Err("Please provide 3 arguments: (copy|fix_exif_date) <source dir> <target dir>");
-        }
-
-        if args[1].ne("copy") {
-            return Err("Currently only the 'copy' operation is supported.")
-        }
-
-        let from_dir = args[2].clone();
-        let to_dir = args[3].clone();
-
-        Ok(Config { from_dir, to_dir })
-    }
-    */
 }
 
 fn copy(config: CopyConfig) {
     println!("Source dir: {}", config.from_dir);
     println!("Target dir: {}", config.to_dir);
 
-    match Copier::new().copy(&config.from_dir, &config.to_dir) {
-        Ok(()) => return,
-        Err(_) => return
-    };
+    Copier::new(config.verbosity).copy(&config.from_dir, &config.to_dir, config.min_size).unwrap();
 }

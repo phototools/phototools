@@ -11,17 +11,19 @@ type GenError = Box<dyn std::error::Error>;
 pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
+    verbosity: u8,
     video_handler: VideoHandler
 }
 
 impl Copier {
-    pub fn new() -> Copier {
+    pub fn new(verbosity: u8) -> Copier {
         Copier {
+            verbosity,
             video_handler: VideoHandler::new()
         }
     }
 
-    pub fn copy(&self, from: &str, to: &str) -> GenResult<()> {
+    pub fn copy(&self, from: &str, to: &str, min_size: u32) -> GenResult<()> {
         let dir = Path::new(from);
         let t_dir = Path::new(to);
 
@@ -145,10 +147,10 @@ mod tests {
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
 
-        let copier = Copier::new();
+        let copier = Copier::new(0);
         let sd = td.clone() + "../src/test";
         let tdp1 = td.clone() + "test_photo";
-        copier.copy(&sd, &tdp1).unwrap();
+        copier.copy(&sd, &tdp1, 0).unwrap();
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
         let md = fs::metadata(&no_md_filename)?;
@@ -162,7 +164,9 @@ mod tests {
         //assert_eq!("2019-05-01 17:40:16", file_time);
         assert_files_equal(sd.clone() + "/gps-date.jpg", tdp1.clone() + "/2019-04-27/gps-date.jpg");
         assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019-04-27/gps-date copy.jpg");
-        // TODO check whatsapp images for file time.
+
+        // check whatsapp images for file time.
+        assert_files_equal(sd.clone() + "IMG-20170701-WA002.jpg", tdp1.clone() + "/2017-07-01/IMG-20170701-WA002.jpg");
 
         Ok(())
     }
@@ -171,26 +175,26 @@ mod tests {
     #[test]
     fn test_dont_replace_same_file() {
         let td = get_target_dir();
-        let copier = Copier::new();
+        let copier = Copier::new(0);
         let source_dir_a = td.clone() + "../src/test1a";
         let target_dir = td.clone() + "test_photo1";
-        copier.copy(&source_dir_a, &target_dir).unwrap();
+        copier.copy(&source_dir_a, &target_dir, 0).unwrap();
 
         let subdir = check_dir_name(&target_dir, "2019-04-27");
         let file = check_dir_name(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
         
         // Copy again, should not create another file
-        copier.copy(&source_dir_a, &target_dir).unwrap();
+        copier.copy(&source_dir_a, &target_dir, 0).unwrap();
         let file = check_dir_name(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
 
         // Copy file from different directory. File has the same name, but different content
         // this should create a separate file 
         let target_dir_b = td.clone() + "test_photo2";
-        copier.copy(&source_dir_a, &target_dir_b).unwrap();
+        copier.copy(&source_dir_a, &target_dir_b, 0).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
-        copier.copy(&source_dir_b, &target_dir_b).unwrap();
+        copier.copy(&source_dir_b, &target_dir_b, 0).unwrap();
         let subdir2 = check_dir_name(&target_dir_b, "2019-04-27");
         let file = check_dir_names(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
         assert_eq!(204636, get_file_size(&file).unwrap());
