@@ -60,8 +60,8 @@ impl Copier {
             "jpeg" |
             "jpg" => {
                     // photo
-                    let f = File::open(&p).unwrap();
-                    PhotoHandler::get_date_time(&f)
+                    // let f = File::open(&p).unwrap();
+                    PhotoHandler::get_date_time(&p)
                 },
             "mp4" | "m4v" => {
                     // video

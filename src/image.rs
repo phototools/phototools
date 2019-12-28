@@ -1,11 +1,15 @@
 use crate::filetools;
 
 use std::fs::File;
+use std::path::Path;
+use regex::Regex;
 
 pub struct PhotoHandler {}
 
 impl PhotoHandler {
-    pub fn get_date_time(f: &File) -> String {
+    pub fn get_date_time(p: &Path) -> String {
+        let f = File::open(p).unwrap();
+
         // TODO get rid of all the unwraps here
         let reader = exif::Reader::new(&mut std::io::BufReader::new(f)).unwrap();
 
@@ -27,12 +31,26 @@ impl PhotoHandler {
 
         let v = PhotoHandler::get_tag(&reader, exif::Tag::DateTime);
         if let None = v {
-            println!("No Exif tag found for date, using file date instead.");
-            let md = f.metadata().unwrap();
-            filetools::get_time_from_metadata(md).unwrap()
+            let v = PhotoHandler::get_whatsapp_filename_date(p);
+            if let None = v {
+                println!("No Exif tag found for date, using file date instead.");
+                let md = f.metadata().unwrap();
+                return filetools::get_time_from_metadata(md).unwrap()
+            } else {
+                return v.unwrap();
+            }
         } else {
             v.unwrap()
         }
+    }
+
+    fn get_whatsapp_filename_date(path: &Path) -> Option<String> {
+        let p = Regex::new(r"IMG-(\d{8})-WA\d{3}.jpg").unwrap(); // make constant
+        let res = p.captures(&path.file_name().unwrap().to_string_lossy());
+        if let Some(x) = res {
+            println!("Found a whatsapp file date! {}", x);
+        }
+        None
     }
 
     fn get_tag(reader: &exif::Reader, tag: exif::Tag) -> Option<String> {
