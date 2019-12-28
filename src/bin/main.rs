@@ -28,41 +28,36 @@ fn main() {
                 .help("The destination directory root")
                 .takes_value(true)))
         .get_matches();
+   
+    let verbosity = matches.occurrences_of("v");
+    println!("Verbosity: {}", verbosity);
 
-    // let cfg = Config { from_dir, to_dir };
-    let cfg = Config::from(matches).unwrap_or_else(|err| {
-        println!("Problem initializing with arguments: {}", err);
-        process::exit(1);
-    });
-    println!("Using configuration {:?}", cfg);
-    // run(cfg);
-    /*
-    let args: Vec<String> = env::args().collect();
-
-    let config = Config::new(&args).unwrap_or_else(|err| {
-        println!("Problem parsing arguments: {}", err);
-        process::exit(1);
-    });
-
-    run(config);
-    */
+    if let Some(matches) = matches.subcommand_matches("copy") {
+        // Copy operation
+        let cfg = CopyConfig::from(matches).unwrap_or_else(|err| {
+            println!("Problem initializing with arguments: {}", err);
+            process::exit(1);
+        });
+        println!("Using configuration {:?}", cfg);
+        // copy(cfg);
+    }
 }
 
 #[derive(Debug)]
-struct Config {
+struct CopyConfig {
     from_dir: String,
     to_dir: String,
     min_size: u32
 }
 
-impl Config {
-    fn from(m: ArgMatches) -> Result<Config, GenError> {
-        let min_size_str = m.value_of("min-size").unwrap_or("500");
-        let src_dir = m.value_of("source-dir").unwrap();
-        let dst_dir = m.value_of("dest-dir").unwrap();
+impl CopyConfig {
+    fn from(m: &ArgMatches) -> Result<CopyConfig, GenError> {
+        let min_size_str = m.value_of("minimum size").unwrap_or("500");
+        let src_dir = m.value_of("source directory").unwrap();
+        let dst_dir = m.value_of("destination directory").unwrap();
         let min_size = min_size_str.parse::<u32>()?;
 
-        Ok(Config { 
+        Ok(CopyConfig { 
             from_dir: String::from(src_dir), 
             to_dir: String::from(dst_dir),
             min_size
@@ -87,7 +82,7 @@ impl Config {
     */
 }
 
-fn run(config: Config) {
+fn copy(config: CopyConfig) {
     println!("Source dir: {}", config.from_dir);
     println!("Target dir: {}", config.to_dir);
 
