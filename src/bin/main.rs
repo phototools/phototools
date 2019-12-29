@@ -3,7 +3,6 @@ extern crate clap;
 use clap::{Arg, ArgMatches, App, SubCommand};
 use phototools::copier::Copier;
 
-use std::collections::HashMap;
 use std::process;
 
 type GenError = Box<dyn std::error::Error>;

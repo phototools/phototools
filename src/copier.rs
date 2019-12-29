@@ -4,7 +4,7 @@ use crate::strings::Strings;
 
 use filetime::{self, FileTime};
 use std::io;
-use std::fs::{self, File, DirEntry};
+use std::fs::{self, DirEntry};
 use std::path::Path;
 
 type GenError = Box<dyn std::error::Error>;
@@ -61,7 +61,7 @@ impl Copier {
             "jpg" => {
                     // photo
                     // let f = File::open(&p).unwrap();
-                    PhotoHandler::get_date_time(&p)
+                    PhotoHandler::get_date_time(p.as_ref())
                 },
             "mp4" | "m4v" => {
                     // video
@@ -143,6 +143,7 @@ mod tests {
 
     #[test]
     fn test_copy() -> io::Result<()> {
+        // TODO make sure different tests write to different locations
         let td = get_target_dir();
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
@@ -166,7 +167,7 @@ mod tests {
         assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019-04-27/gps-date copy.jpg");
 
         // check whatsapp images for file time.
-        assert_files_equal(sd.clone() + "IMG-20170701-WA002.jpg", tdp1.clone() + "/2017-07-01/IMG-20170701-WA002.jpg");
+        assert_files_equal(sd.clone() + "/IMG-20170701-WA002.jpg", tdp1.clone() + "/2017-07-01/IMG-20170701-WA002.jpg");
 
         Ok(())
     }
