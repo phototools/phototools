@@ -12,7 +12,7 @@ pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
     min_size: u64,
-    verbosity: u8,
+    _verbosity: u8,
     video_handler: VideoHandler
 }
 
@@ -20,7 +20,7 @@ impl Copier {
     pub fn new(min_size: u64, verbosity: u8) -> Copier {
         Copier {
             min_size, 
-            verbosity,
+            _verbosity: verbosity,
             video_handler: VideoHandler::new()
         }
     }
