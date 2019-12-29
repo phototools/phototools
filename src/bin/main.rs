@@ -47,7 +47,7 @@ fn main() {
 struct CopyConfig {
     from_dir: String,
     to_dir: String,
-    min_size: u32,
+    min_size: u64,
     verbosity: u8
 }
 
@@ -56,7 +56,7 @@ impl CopyConfig {
         let min_size_str = copy_matches.value_of("minimum size").unwrap_or("500");
         let src_dir = copy_matches.value_of("source directory").unwrap();
         let dst_dir = copy_matches.value_of("destination directory").unwrap();
-        let min_size = min_size_str.parse::<u32>()?;
+        let min_size = min_size_str.parse::<u64>()?;
 
         Ok(CopyConfig { 
             from_dir: String::from(src_dir), 
@@ -71,5 +71,5 @@ fn copy(config: CopyConfig) {
     println!("Source dir: {}", config.from_dir);
     println!("Target dir: {}", config.to_dir);
 
-    Copier::new(config.verbosity).copy(&config.from_dir, &config.to_dir, config.min_size).unwrap();
+    Copier::new(config.min_size, config.verbosity).copy(&config.from_dir, &config.to_dir).unwrap();
 }

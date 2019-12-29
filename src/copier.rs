@@ -11,19 +11,21 @@ type GenError = Box<dyn std::error::Error>;
 pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
+    min_size: u64,
     verbosity: u8,
     video_handler: VideoHandler
 }
 
 impl Copier {
-    pub fn new(verbosity: u8) -> Copier {
+    pub fn new(min_size: u64, verbosity: u8) -> Copier {
         Copier {
+            min_size, 
             verbosity,
             video_handler: VideoHandler::new()
         }
     }
 
-    pub fn copy(&self, from: &str, to: &str, min_size: u32) -> GenResult<()> {
+    pub fn copy(&self, from: &str, to: &str) -> GenResult<()> {
         let dir = Path::new(from);
         let t_dir = Path::new(to);
 
@@ -48,7 +50,10 @@ impl Copier {
     fn copy_direntry(&self, direntry: &DirEntry, target_dir: &Path) -> GenResult<()> {
         println!("Copying {:?}", direntry);
         let p = direntry.path();
-        self.copy_file(p, target_dir)?;
+
+        if self.minimum_size(&p) {
+            self.copy_file(p, target_dir)?;
+        }
         Ok(())
     }
 
@@ -105,7 +110,6 @@ impl Copier {
                 counter += 1;
             }
 
-
             println!("Copying {} to {}", src_file, target_file);
             fs::copy(src_file, &target_file)?;
 
@@ -119,6 +123,13 @@ impl Copier {
             // TODO we should not need the GenError box
             Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, format!("Problem with file: {:?}", p.as_ref()))))
         }
+    }
+
+    fn minimum_size<P: AsRef<Path>>(&self, p: P) -> bool {
+        if let Ok(md) = fs::metadata(p) {
+            return md.len() >= self.min_size;
+        }
+        false
     }
 
     fn identical_file(p1: &Path, p2: &Path) -> bool {
@@ -148,10 +159,10 @@ mod tests {
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
 
-        let copier = Copier::new(0);
+        let copier = Copier::new(0, 0);
         let sd = td.clone() + "../src/test";
         let tdp1 = td.clone() + "test_photo";
-        copier.copy(&sd, &tdp1, 0).unwrap();
+        copier.copy(&sd, &tdp1).unwrap();
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
         let md = fs::metadata(&no_md_filename)?;
@@ -172,32 +183,51 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_min_size() -> io::Result<()> {
+        let copier = Copier::new(100000, 0);
+        let sd = get_target_dir() + "../src/test";
+        let td = get_target_dir() + "test_min_size";
+        copier.copy(&sd, &td).unwrap();
+
+        let td1 = dir_has_file(&td, "2019-05-01");
+        dir_exact(&td1, &["creation-time.mp4"]);
+
+        let td2 = dir_has_file(&td, "2019-04-27");
+        dir_exact(&td2, &["gps-date.jpg", "gps-date copy.jpg"]);
+
+        // check dir names = ensure no extra files
+        dir_exact(&td, &["2019-04-27", "2019-05-01"]);
+        Ok(())
+    }
+
     // TODO check that the file is not overwritten, if the same filename exists
     #[test]
     fn test_dont_replace_same_file() {
         let td = get_target_dir();
-        let copier = Copier::new(0);
+        let copier = Copier::new(0, 0);
         let source_dir_a = td.clone() + "../src/test1a";
         let target_dir = td.clone() + "test_photo1";
-        copier.copy(&source_dir_a, &target_dir, 0).unwrap();
+        copier.copy(&source_dir_a, &target_dir).unwrap();
 
-        let subdir = check_dir_name(&target_dir, "2019-04-27");
-        let file = check_dir_name(&subdir, "myimg.jpg");
+        let subdir = dir_has_file(&target_dir, "2019-04-27");
+        let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
         
         // Copy again, should not create another file
-        copier.copy(&source_dir_a, &target_dir, 0).unwrap();
-        let file = check_dir_name(&subdir, "myimg.jpg");
+        copier.copy(&source_dir_a, &target_dir).unwrap();
+        let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
 
         // Copy file from different directory. File has the same name, but different content
         // this should create a separate file 
         let target_dir_b = td.clone() + "test_photo2";
-        copier.copy(&source_dir_a, &target_dir_b, 0).unwrap();
+        copier.copy(&source_dir_a, &target_dir_b).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
-        copier.copy(&source_dir_b, &target_dir_b, 0).unwrap();
-        let subdir2 = check_dir_name(&target_dir_b, "2019-04-27");
-        let file = check_dir_names(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
+        copier.copy(&source_dir_b, &target_dir_b).unwrap();
+        let subdir2 = dir_has_file(&target_dir_b, "2019-04-27");
+        dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
+        let file = dir_has_file(&subdir2, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
         // check second file size too TODO
 
@@ -209,7 +239,11 @@ mod tests {
         Ok(md.len())
     }
 
-    fn check_dir_names(dir: &str, names: &[&str]) -> String {
+    fn dir_exact(dir: &str, names: &[&str]) {
+        check_dir_names(dir, names, true);
+    }
+
+    fn check_dir_names(dir: &str, names: &[&str], check_filenum: bool) {
         let dir = fs::read_dir(dir).unwrap();
         let paths: Vec<_> = dir.map(|res| res.unwrap().path()).collect();
         let mut found = names.to_vec();
@@ -223,15 +257,23 @@ mod tests {
         }
 
         assert_eq!(0, found.len(), "Not all expected files found {:?}", found);
-        assert_eq!(names.len(), paths.len(), "Incorrect number of files found.");
-        let path = &paths[0];
-        let res = path.to_string_lossy();
-        res.into_owned()
+
+        if check_filenum {
+            assert_eq!(names.len(), paths.len(), "Incorrect number of files found. Expected: {:?} was {:?}", 
+                names, paths);
+        }
     }
 
-    fn check_dir_name(dir: &str, name: &str) -> String {
-        check_dir_names(dir, &[name])
+    fn dir_has_file(dir: &str, name: &str) -> String {
+        let mut d = String::from(dir);
+        if !d.ends_with("/") {
+            d += "/";
+        }
+
+        check_dir_names(&d, &[name], false);
+
+        d += name;
+        d
     }
-    // TODO specify a minimum size
     // TODO specify a start date
 }
