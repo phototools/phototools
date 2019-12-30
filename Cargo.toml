@@ -19,4 +19,8 @@ lto = true
 panic = 'abort'
 codegen-units = 1
 
+[[bin]]
+name = "phototools"
+path = "src/bin/main.rs"
+
 # Also: strip <binary_name>
