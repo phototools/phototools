@@ -1,5 +1,6 @@
 use crate::filetools;
 
+use log::debug;
 use std::fs::File;
 use std::path::Path;
 use regex::Regex;
@@ -34,7 +35,7 @@ impl PhotoHandler {
         if let None = v {
             let v = PhotoHandler::get_whatsapp_filename_date(p);
             if let None = v {
-                println!("No Exif tag found for date, using file date instead.");
+                debug!("No Exif tag found for date, using file date instead.");
                 let md = f.metadata().unwrap();
                 return filetools::get_time_from_metadata(md).unwrap()
             } else {
@@ -51,7 +52,7 @@ impl PhotoHandler {
         let res = p.captures(f);
         if let Some(x) = res {
             let ds = x[1].to_string();
-            println!("Found a whatsapp file date! {:?}", ds);
+            debug!("Found a whatsapp file date! {:?}", ds);
             // TODO remove the dummy time of 1300 hrs
             let d = format!("{}-{}-{} 13:00:00", &ds[0..4], &ds[4..6], &ds[6..8]);
             return Some(d)
@@ -66,7 +67,7 @@ impl PhotoHandler {
         } else {
             let val = &field.unwrap().value;
             let t = *(&field.unwrap().tag);
-            println!("Value of tag {} is {}", tag, val.display_as(t));
+            debug!("Value of tag {} is {}", tag, val.display_as(t));
             Some(format!("{}", val.display_as(t)))
         }
     }

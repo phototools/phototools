@@ -3,6 +3,7 @@ use crate::video::VideoHandler;
 use crate::strings::Strings;
 
 use filetime::{self, FileTime};
+use log::{info, debug};
 use std::io;
 use std::fs::{self, DirEntry};
 use std::path::Path;
@@ -12,15 +13,13 @@ pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
     min_size: u64,
-    verbosity: u8,
     video_handler: VideoHandler
 }
 
 impl Copier {
-    pub fn new(min_size: u64, verbosity: u8) -> Copier {
+    pub fn new(min_size: u64) -> Copier {
         Copier {
             min_size, 
-            verbosity,
             video_handler: VideoHandler::new()
         }
     }
@@ -48,17 +47,14 @@ impl Copier {
     }
 
     fn copy_direntry(&self, direntry: &DirEntry, target_dir: &Path) -> GenResult<()> {
-        println!("Copying {:?}", direntry);
         let p = direntry.path();
 
         let file_size = self.file_size(&p);
-        if self.verbosity >= 2 { println!("File {:?} size {}", p, file_size); }
+        debug!("File {:?} size {}", p, file_size); 
         if file_size >= self.min_size {
             self.copy_file(p, target_dir)?;
         } else {
-            if self.verbosity >= 1 {
-                println!("Skipping {:?} as its size {} is less than {}", p, file_size, self.min_size);
-            }
+            info!("Skipping {:?} as its size {} is less than {}", p, file_size, self.min_size);
         }
         Ok(())
     }
@@ -82,7 +78,7 @@ impl Copier {
             // TODO handle properly, maybe log a warning...
         };
 
-        println!("Found timestamp: {:?}", ts);
+        debug!("Found timestamp: {:?}", ts);
         let ts_date = Strings::truncate_at_space(ts.clone());
 
         if let Some(stem) = p.as_ref().file_name() {
@@ -97,7 +93,7 @@ impl Copier {
             let mut target_file = org_target_file.clone();
             while path.exists() {
                 if Copier::identical_file(&p.as_ref(), &path) {
-                    println!("Identical file already exists {}", target_file);
+                    info!("Identical file already exists {}", target_file);
                     return Ok(());
                 }
 
@@ -116,14 +112,13 @@ impl Copier {
                 counter += 1;
             }
 
-            println!("Copying {} to {}", src_file, target_file);
+            info!("Copying {} to {}", src_file, target_file);
             fs::copy(src_file, &target_file)?;
 
-            println!("Setting file date and time to: {}", ts);
+            debug!("Setting file date and time to: {}", ts);
             let new_dt = chrono::NaiveDateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")?;
             let unix_ts = FileTime::from_unix_time(new_dt.timestamp(), 0);
             filetime::set_file_times(&target_file, unix_ts, unix_ts)?;
-            println!("...done");
             Ok(())
         } else {
             // TODO we should not need the GenError box
@@ -165,7 +160,7 @@ mod tests {
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
 
-        let copier = Copier::new(0, 0);
+        let copier = Copier::new(0);
         let sd = td.clone() + "../src/test";
         let tdp1 = td.clone() + "test_photo";
         copier.copy(&sd, &tdp1).unwrap();

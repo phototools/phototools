@@ -1,8 +1,12 @@
 extern crate clap;
+extern crate env_logger;
+extern crate log;
 
+use env_logger::Builder;
 use clap::{Arg, ArgMatches, App, SubCommand};
+use log::{debug, LevelFilter};
 use phototools::copier::Copier;
-
+use std::io::Write;
 use std::process;
 
 type GenError = Box<dyn std::error::Error>;
@@ -30,15 +34,29 @@ fn main() {
         .get_matches();
    
     let verbosity = matches.occurrences_of("v");
-    println!("Verbosity: {}", verbosity);
+    let mut log_builder = Builder::from_default_env();
+    log_builder.format(|buf, record| {
+        writeln!(buf,
+            "[{}] - {}",
+            record.level(),
+            record.args()
+        )
+    });
 
+    let _ = match verbosity {
+        0 => log_builder.filter_level(LevelFilter::Info),
+        1 => log_builder.filter_level(LevelFilter::Debug),
+        _ => log_builder.filter_level(LevelFilter::Trace)
+    };
+    log_builder.init();
+    
     if let Some(copy_matches) = matches.subcommand_matches("copy") {
         // Copy operation
-        let cfg = CopyConfig::from(&matches, copy_matches).unwrap_or_else(|err| {
+        let cfg = CopyConfig::from(copy_matches).unwrap_or_else(|err| {
             println!("Problem initializing with arguments: {}", err);
             process::exit(1);
         });
-        println!("Using configuration {:?}", cfg);
+        debug!("Using configuration {:?}", cfg);
         copy(cfg);
     }
 }
@@ -47,12 +65,11 @@ fn main() {
 struct CopyConfig {
     from_dir: String,
     to_dir: String,
-    min_size: u64,
-    verbosity: u8
+    min_size: u64
 }
 
 impl CopyConfig {
-    fn from(gen_matches: &ArgMatches, copy_matches: &ArgMatches) -> Result<CopyConfig, GenError> {
+    fn from(copy_matches: &ArgMatches) -> Result<CopyConfig, GenError> {
         let min_size_str = copy_matches.value_of("minimum size").unwrap_or("500");
         let src_dir = copy_matches.value_of("source directory").unwrap();
         let dst_dir = copy_matches.value_of("destination directory").unwrap();
@@ -61,15 +78,14 @@ impl CopyConfig {
         Ok(CopyConfig { 
             from_dir: String::from(src_dir), 
             to_dir: String::from(dst_dir),
-            min_size,
-            verbosity: gen_matches.occurrences_of("v") as u8
+            min_size
         })
     }
 }
 
 fn copy(config: CopyConfig) {
-    println!("Source dir: {}", config.from_dir);
-    println!("Target dir: {}", config.to_dir);
+    debug!("Source dir: {}", config.from_dir);
+    debug!("Target dir: {}", config.to_dir);
 
-    Copier::new(config.min_size, config.verbosity).copy(&config.from_dir, &config.to_dir).unwrap();
+    Copier::new(config.min_size).copy(&config.from_dir, &config.to_dir).unwrap();
 }
