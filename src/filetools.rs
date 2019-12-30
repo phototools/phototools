@@ -10,7 +10,8 @@ pub fn get_time_from_file<P: AsRef<Path>>(p: P) -> io::Result<String> {
 }
 
 pub fn get_time_from_metadata(md: Metadata) -> io::Result<String> {
-    let ct = md.created();
+    // let ct = md.created();
+    let ct = md.modified();
     if let Ok(creation_time) = ct {
         Ok(format_time(creation_time))
     } else {

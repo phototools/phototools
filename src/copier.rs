@@ -147,6 +147,7 @@ impl Copier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::filetools;
     use crate::testtools::get_target_dir;
     use crate::testtools::assert_files_equal;
     use chrono::DateTime;
@@ -176,9 +177,8 @@ mod tests {
         assert_files_equal(no_md_filename1, tdp1.clone() + &expected_dir1 + "NO_METADATA.M4V");
 
         assert_files_equal(sd.clone() + "/creation-time.mp4", tdp1.clone() + "/2019-05-01/creation-time.mp4");
-        // TODO check that the file time is modified too
-        //let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019-05-01/creation-time.mp4").unwrap();
-        //assert_eq!("2019-05-01 17:40:16", file_time);
+        let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019-05-01/creation-time.mp4").unwrap();
+        assert_eq!("2019-05-01 17:40:16", file_time);
         assert_files_equal(sd.clone() + "/gps-date.jpg", tdp1.clone() + "/2019-04-27/gps-date.jpg");
         assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019-04-27/gps-date copy.jpg");
 
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_min_size() -> io::Result<()> {
-        let copier = Copier::new(100000, 0);
+        let copier = Copier::new(100000);
         let sd = get_target_dir() + "../src/test";
         let td = get_target_dir() + "test_min_size";
         copier.copy(&sd, &td).unwrap();
@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn test_dont_replace_same_file() {
         let td = get_target_dir();
-        let copier = Copier::new(0, 0);
+        let copier = Copier::new(0);
         let source_dir_a = td.clone() + "../src/test1a";
         let target_dir = td.clone() + "test_photo1";
         copier.copy(&source_dir_a, &target_dir).unwrap();
