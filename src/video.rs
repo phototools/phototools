@@ -1,5 +1,6 @@
 use crate::filetools;
 
+use log::debug;
 use std::io;
 use std::path::Path;
 use std::process::Command;
@@ -21,15 +22,43 @@ impl VideoHandler {
     pub fn get_date_time<P: AsRef<Path>>(&self, p: P) -> io::Result<String> {
         let output = VideoHandler::get_ffmpeg_output(p.as_ref());
 
-        let x = match output {
-            Err(_) => filetools::get_time_from_file(p.as_ref()),
-            Ok(s) => match self.get_creationtime_from_string(s) {
-                Some(ct) => Ok(ct), // update time on file too TODO
-                None => filetools::get_time_from_file(p.as_ref())
+        if let Ok(ffmpeg_output) = output {
+            if let Some(ct) = self.get_creationtime_from_string(ffmpeg_output) {
+                return Ok(ct);
             }
-        };
+        }
 
-        x
+        if let Some(d) = VideoHandler::get_whatsapp_filename_date(p.as_ref()) {
+            return Ok(d);
+        }
+        filetools::get_time_from_file(p.as_ref())
+        /////
+        // 
+        // 
+        // let x = match output {
+        //     Err(_) => filetools::get_time_from_file(p.as_ref()),
+        //     Ok(s) => match self.get_creationtime_from_string(s) {
+        //         Some(ct) => Ok(ct),
+        //         None => filetools::get_time_from_file(p.as_ref())
+        //     }
+        // };
+
+        // x
+    }
+
+    // TODO share with image via filetools?
+    fn get_whatsapp_filename_date(path: &Path) -> Option<String> {
+        let p = Regex::new(r"VID-(\d{8})-WA\d{4}.mp4").unwrap(); // TODO make constant
+        let f = &path.file_name().unwrap().to_string_lossy();
+        let res = p.captures(f);
+        if let Some(x) = res {
+            let ds = x[1].to_string();
+            debug!("Found a whatsapp file date! {:?}", ds);
+            // TODO remove the dummy time of 1300 hrs
+            let d = format!("{}-{}-{} 13:00:00", &ds[0..4], &ds[4..6], &ds[6..8]);
+            return Some(d)
+        }
+        None
     }
 
     fn get_creationtime_from_string(&self, s: String) -> Option<String> {

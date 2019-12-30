@@ -187,6 +187,12 @@ mod tests {
         let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017-07-01/IMG-20170701-WA0002.jpg")?;
         let file_date = Strings::truncate_at_space(file_time2);
         assert_eq!("2017-07-01", file_date);
+        
+        assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4", 
+            tdp1.clone() + "/2018-11-29/VID-20181129-WA9876.mp4");
+        let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018-11-29/VID-20181129-WA9876.mp4")?;
+        let file_date3 = Strings::truncate_at_space(file_time3);
+        assert_eq!("2018-11-29", file_date3);
 
         Ok(())
     }
