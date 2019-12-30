@@ -84,7 +84,7 @@ impl Copier {
         if let Some(stem) = p.as_ref().file_name() {
             let stem = stem.to_string_lossy();
             let src_file: &str = &p.as_ref().to_string_lossy();
-            let target_dir = target_dir.to_string_lossy().into_owned() + "/" + &ts_date;
+            let target_dir = target_dir.to_string_lossy().into_owned() + "/" + &ts_date[0..4] + "/" + &ts_date;
             fs::create_dir_all(&target_dir)?;
             let org_target_file = target_dir + "/" + &stem;
 
@@ -168,29 +168,29 @@ mod tests {
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
         let created: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename)?.created()?);
-        let expected_dir = format!("{}", created.format("/%Y-%m-%d/"));
+        let expected_dir = format!("{}", created.format("/%Y/%Y-%m-%d/"));
         assert_files_equal(no_md_filename, tdp1.clone() + &expected_dir + "NO_METADATA.JPEG");
 
         let no_md_filename1 = sd.clone() + "/NO_METADATA.M4V";
         let created1: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename1)?.created()?);
-        let expected_dir1 = format!("{}", created1.format("/%Y-%m-%d/"));
+        let expected_dir1 = format!("{}", created1.format("/%Y/%Y-%m-%d/"));
         assert_files_equal(no_md_filename1, tdp1.clone() + &expected_dir1 + "NO_METADATA.M4V");
 
-        assert_files_equal(sd.clone() + "/creation-time.mp4", tdp1.clone() + "/2019-05-01/creation-time.mp4");
-        let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019-05-01/creation-time.mp4")?;
+        assert_files_equal(sd.clone() + "/creation-time.mp4", tdp1.clone() + "/2019/2019-05-01/creation-time.mp4");
+        let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019/2019-05-01/creation-time.mp4")?;
         assert_eq!("2019-05-01 17:40:16", file_time);
-        assert_files_equal(sd.clone() + "/gps-date.jpg", tdp1.clone() + "/2019-04-27/gps-date.jpg");
-        assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019-04-27/gps-date copy.jpg");
+        assert_files_equal(sd.clone() + "/gps-date.jpg", tdp1.clone() + "/2019/2019-04-27/gps-date.jpg");
+        assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019/2019-04-27/gps-date copy.jpg");
 
         // check whatsapp images for file time.
-        assert_files_equal(sd.clone() + "/IMG-20170701-WA0002.jpg", tdp1.clone() + "/2017-07-01/IMG-20170701-WA0002.jpg");
-        let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017-07-01/IMG-20170701-WA0002.jpg")?;
+        assert_files_equal(sd.clone() + "/IMG-20170701-WA0002.jpg", tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg");
+        let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?;
         let file_date = Strings::truncate_at_space(file_time2);
         assert_eq!("2017-07-01", file_date);
         
         assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4", 
-            tdp1.clone() + "/2018-11-29/VID-20181129-WA9876.mp4");
-        let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018-11-29/VID-20181129-WA9876.mp4")?;
+            tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4");
+        let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4")?;
         let file_date3 = Strings::truncate_at_space(file_time3);
         assert_eq!("2018-11-29", file_date3);
 
@@ -204,14 +204,15 @@ mod tests {
         let td = get_target_dir() + "test_min_size";
         copier.copy(&sd, &td).unwrap();
 
-        let td1 = dir_has_file(&td, "2019-05-01");
+        let td0 = td + "/2019";
+        let td1 = dir_has_file(&td0, "2019-05-01");
         dir_exact(&td1, &["creation-time.mp4"]);
 
-        let td2 = dir_has_file(&td, "2019-04-27");
+        let td2 = dir_has_file(&td0, "2019-04-27");
         dir_exact(&td2, &["gps-date.jpg", "gps-date copy.jpg"]);
 
         // check dir names = ensure no extra files
-        dir_exact(&td, &["2019-04-27", "2019-05-01"]);
+        dir_exact(&td0, &["2019-04-27", "2019-05-01"]);
         Ok(())
     }
 
@@ -224,12 +225,13 @@ mod tests {
         let target_dir = td.clone() + "test_photo1";
         copier.copy(&source_dir_a, &target_dir).unwrap();
 
-        let subdir = dir_has_file(&target_dir, "2019-04-27");
+        let td0 = target_dir + "/2019";
+        let subdir = dir_has_file(&td0, "2019-04-27");
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
         
         // Copy again, should not create another file
-        copier.copy(&source_dir_a, &target_dir).unwrap();
+        copier.copy(&source_dir_a, &td0).unwrap();
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
 
@@ -239,7 +241,8 @@ mod tests {
         copier.copy(&source_dir_a, &target_dir_b).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
         copier.copy(&source_dir_b, &target_dir_b).unwrap();
-        let subdir2 = dir_has_file(&target_dir_b, "2019-04-27");
+        let td_b = target_dir_b + "/2019";
+        let subdir2 = dir_has_file(&td_b, "2019-04-27");
         dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
         let file = dir_has_file(&subdir2, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
