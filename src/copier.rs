@@ -12,7 +12,7 @@ pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
     min_size: u64,
-    _verbosity: u8,
+    verbosity: u8,
     video_handler: VideoHandler
 }
 
@@ -20,7 +20,7 @@ impl Copier {
     pub fn new(min_size: u64, verbosity: u8) -> Copier {
         Copier {
             min_size, 
-            _verbosity: verbosity,
+            verbosity,
             video_handler: VideoHandler::new()
         }
     }
@@ -51,8 +51,14 @@ impl Copier {
         println!("Copying {:?}", direntry);
         let p = direntry.path();
 
-        if self.minimum_size(&p) {
+        let file_size = self.file_size(&p);
+        if self.verbosity >= 2 { println!("File {:?} size {}", p, file_size); }
+        if file_size >= self.min_size {
             self.copy_file(p, target_dir)?;
+        } else {
+            if self.verbosity >= 1 {
+                println!("Skipping {:?} as its size {} is less than {}", p, file_size, self.min_size);
+            }
         }
         Ok(())
     }
@@ -125,11 +131,11 @@ impl Copier {
         }
     }
 
-    fn minimum_size<P: AsRef<Path>>(&self, p: P) -> bool {
+    fn file_size<P: AsRef<Path>>(&self, p: P) -> u64 {
         if let Ok(md) = fs::metadata(p) {
-            return md.len() >= self.min_size;
+            return md.len();
         }
-        false
+        std::u64::MAX
     }
 
     fn identical_file(p1: &Path, p2: &Path) -> bool {
@@ -165,11 +171,15 @@ mod tests {
         copier.copy(&sd, &tdp1).unwrap();
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
-        let md = fs::metadata(&no_md_filename)?;
-        let created: DateTime<Utc> = DateTime::from(md.created()?);
+        let created: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename)?.created()?);
         let expected_dir = format!("{}", created.format("/%Y-%m-%d/"));
-
         assert_files_equal(no_md_filename, tdp1.clone() + &expected_dir + "NO_METADATA.JPEG");
+
+        let no_md_filename1 = sd.clone() + "/NO_METADATA.M4V";
+        let created1: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename1)?.created()?);
+        let expected_dir1 = format!("{}", created1.format("/%Y-%m-%d/"));
+        assert_files_equal(no_md_filename1, tdp1.clone() + &expected_dir1 + "NO_METADATA.M4V");
+
         assert_files_equal(sd.clone() + "/creation-time.mp4", tdp1.clone() + "/2019-05-01/creation-time.mp4");
         // TODO check that the file time is modified too
         //let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019-05-01/creation-time.mp4").unwrap();
