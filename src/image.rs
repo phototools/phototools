@@ -47,7 +47,7 @@ impl PhotoHandler {
     }
 
     fn get_whatsapp_filename_date(path: &Path) -> Option<String> {
-        let p = Regex::new(r"IMG-(\d{8})-WA\d{3}.jpg").unwrap(); // make constant
+        let p = Regex::new(r"IMG-(\d{8})-WA\d{4}.jpg").unwrap(); // TODO make constant
         let f = &path.file_name().unwrap().to_string_lossy();
         let res = p.captures(f);
         if let Some(x) = res {

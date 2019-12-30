@@ -177,13 +177,16 @@ mod tests {
         assert_files_equal(no_md_filename1, tdp1.clone() + &expected_dir1 + "NO_METADATA.M4V");
 
         assert_files_equal(sd.clone() + "/creation-time.mp4", tdp1.clone() + "/2019-05-01/creation-time.mp4");
-        let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019-05-01/creation-time.mp4").unwrap();
+        let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019-05-01/creation-time.mp4")?;
         assert_eq!("2019-05-01 17:40:16", file_time);
         assert_files_equal(sd.clone() + "/gps-date.jpg", tdp1.clone() + "/2019-04-27/gps-date.jpg");
         assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019-04-27/gps-date copy.jpg");
 
         // check whatsapp images for file time.
-        assert_files_equal(sd.clone() + "/IMG-20170701-WA002.jpg", tdp1.clone() + "/2017-07-01/IMG-20170701-WA002.jpg");
+        assert_files_equal(sd.clone() + "/IMG-20170701-WA0002.jpg", tdp1.clone() + "/2017-07-01/IMG-20170701-WA0002.jpg");
+        let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017-07-01/IMG-20170701-WA0002.jpg")?;
+        let file_date = Strings::truncate_at_space(file_time2);
+        assert_eq!("2017-07-01", file_date);
 
         Ok(())
     }
