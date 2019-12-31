@@ -174,9 +174,52 @@ mod tests {
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
 
-        let copier = Copier::new(0);
+        let copier = Copier::new(0, false);
         let sd = td.clone() + "../src/test";
         let tdp1 = td.clone() + "test_photo";
+        copier.copy(&sd, &tdp1).unwrap();
+
+        let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
+        let created: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename)?.created()?);
+        let expected_dir = format!("{}", created.format("/%Y/%Y-%m-%d/"));
+        assert_files_equal(no_md_filename, tdp1.clone() + &expected_dir + "NO_METADATA.JPEG");
+
+        let no_md_filename1 = sd.clone() + "/NO_METADATA.M4V";
+        let created1: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename1)?.created()?);
+        let expected_dir1 = format!("{}", created1.format("/%Y/%Y-%m-%d/"));
+        assert_files_equal(no_md_filename1, tdp1.clone() + &expected_dir1 + "NO_METADATA.M4V");
+
+        assert_files_equal(sd.clone() + "/creation-time.mp4", tdp1.clone() + "/2019/2019-05-01/creation-time.mp4");
+        let file_time = filetools::get_time_from_file(tdp1.clone() + "/2019/2019-05-01/creation-time.mp4")?;
+        assert_eq!("2019-05-01 17:40:16", file_time);
+        assert_files_equal(sd.clone() + "/gps-date.jpg", tdp1.clone() + "/2019/2019-04-27/gps-date.jpg");
+        assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019/2019-04-27/gps-date copy.jpg");
+
+        // check whatsapp images for file time.
+        assert_files_equal(sd.clone() + "/IMG-20170701-WA0002.jpg", tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg");
+        let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?;
+        let file_date = Strings::truncate_at_space(file_time2);
+        assert_eq!("2017-07-01", file_date);
+        
+        assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4", 
+            tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4");
+        let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4")?;
+        let file_date3 = Strings::truncate_at_space(file_time3);
+        assert_eq!("2018-11-29", file_date3);
+
+        Ok(())
+    }
+    
+    #[test]
+    fn test_copy_using_cp() -> io::Result<()> {
+        // TODO make sure different tests write to different locations
+        let td = get_target_dir();
+        assert!(td.ends_with("/phototools/target/"));
+        println!("Target dir {} ", td);
+
+        let copier = Copier::new(0, true);
+        let sd = td.clone() + "../src/test";
+        let tdp1 = td.clone() + "test_photo0";
         copier.copy(&sd, &tdp1).unwrap();
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
@@ -212,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_min_size() -> io::Result<()> {
-        let copier = Copier::new(100000);
+        let copier = Copier::new(100000, false);
         let sd = get_target_dir() + "../src/test";
         let td = get_target_dir() + "test_min_size";
         copier.copy(&sd, &td).unwrap();
@@ -233,7 +276,7 @@ mod tests {
     #[test]
     fn test_dont_replace_same_file() {
         let td = get_target_dir();
-        let copier = Copier::new(0);
+        let copier = Copier::new(0, false);
         let source_dir_a = td.clone() + "../src/test1a";
         let target_dir = td.clone() + "test_photo1";
         copier.copy(&source_dir_a, &target_dir).unwrap();
