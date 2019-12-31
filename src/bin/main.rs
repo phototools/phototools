@@ -30,7 +30,10 @@ fn main() {
             .arg(Arg::with_name("destination directory").short("d").long("dest-dir").value_name("DIR")
                 .required(true)
                 .help("The destination directory root")
-                .takes_value(true)))
+                .takes_value(true))
+            .arg(Arg::with_name("cp copy").short("c").long("cp-copy")
+                .help("Uses 'cp' from the shell to copy files")
+                .takes_value(false)))
         .get_matches();
    
     let verbosity = matches.occurrences_of("v");
@@ -65,7 +68,8 @@ fn main() {
 struct CopyConfig {
     from_dir: String,
     to_dir: String,
-    min_size: u64
+    min_size: u64,
+    shell_cp: bool
 }
 
 impl CopyConfig {
@@ -73,12 +77,15 @@ impl CopyConfig {
         let min_size_str = copy_matches.value_of("minimum size").unwrap_or("500");
         let src_dir = copy_matches.value_of("source directory").unwrap();
         let dst_dir = copy_matches.value_of("destination directory").unwrap();
+        let shell_cp = copy_matches.occurrences_of("cp copy") > 0;
+
         let min_size = min_size_str.parse::<u64>()?;
 
         Ok(CopyConfig { 
             from_dir: String::from(src_dir), 
             to_dir: String::from(dst_dir),
-            min_size
+            min_size,
+            shell_cp
         })
     }
 }
@@ -87,5 +94,6 @@ fn copy(config: CopyConfig) {
     debug!("Source dir: {}", config.from_dir);
     debug!("Target dir: {}", config.to_dir);
 
-    Copier::new(config.min_size).copy(&config.from_dir, &config.to_dir).unwrap();
+    Copier::new(config.min_size, config.shell_cp)
+        .copy(&config.from_dir, &config.to_dir).unwrap();
 }

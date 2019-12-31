@@ -7,19 +7,22 @@ use log::{info, debug};
 use std::io;
 use std::fs::{self, DirEntry};
 use std::path::Path;
+use std::process::Command;
 
 type GenError = Box<dyn std::error::Error>;
 pub type GenResult<T> = Result<T, GenError>;
 
 pub struct Copier {
     min_size: u64,
+    shell_cp: bool,
     video_handler: VideoHandler
 }
 
 impl Copier {
-    pub fn new(min_size: u64) -> Copier {
+    pub fn new(min_size: u64, shell_cp: bool) -> Copier {
         Copier {
             min_size, 
+            shell_cp,
             video_handler: VideoHandler::new()
         }
     }
@@ -113,7 +116,17 @@ impl Copier {
             }
 
             info!("Copying {} to {}", src_file, target_file);
-            fs::copy(src_file, &target_file)?;
+
+            if self.shell_cp {
+                Command::new("cp")
+                    .arg(&src_file)
+                    .arg(&target_file)
+                    .output()
+                    .expect("Failed to execute cp.");
+            } else {
+                fs::copy(src_file, &target_file)?;
+            }
+            
 
             debug!("Setting file date and time to: {}", ts);
             let new_dt = chrono::NaiveDateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")?;
