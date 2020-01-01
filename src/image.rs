@@ -1,4 +1,5 @@
 use crate::filetools;
+use crate::strings::Strings;
 
 use log::debug;
 use std::fs::File;
@@ -21,7 +22,8 @@ impl PhotoHandler {
             let date = PhotoHandler::get_tag(&reader, exif::Tag::GPSDateStamp);
             if let None = date {
             } else {
-                return date.unwrap() + " " + v.unwrap().as_str();
+                let date_time = date.unwrap() + " " + v.unwrap().as_str();
+                return Strings::truncate_at('.', date_time);
             }
         }
 

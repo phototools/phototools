@@ -1,8 +1,12 @@
 pub struct Strings {}
 
 impl Strings {
-    pub fn truncate_at_space(mut s: String) -> String {
-        let idx = s.find(' ');
+    pub fn truncate_at_space(s: String) -> String {
+        Strings::truncate_at(' ', s)
+    }
+
+    pub fn truncate_at(c: char, mut s: String) -> String {
+        let idx = s.find(c);
         match idx {
             Some(v) => s.truncate(v),
             None => {}
