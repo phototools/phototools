@@ -102,7 +102,7 @@ impl Copier {
 
                 let base;
                 let ext;
-                if let Some(idx) = org_target_file.find('.') {
+                if let Some(idx) = org_target_file.rfind('.') {
                     base = &org_target_file[..idx];
                     ext = &org_target_file[idx..];
                 } else {
@@ -272,7 +272,6 @@ mod tests {
         Ok(())
     }
 
-    // TODO check that the file is not overwritten, if the same filename exists
     #[test]
     fn test_dont_replace_same_file() {
         let td = get_target_dir();
@@ -297,14 +296,29 @@ mod tests {
         copier.copy(&source_dir_a, &target_dir_b).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
         copier.copy(&source_dir_b, &target_dir_b).unwrap();
-        let td_b = target_dir_b + "/2019";
+        let td_b = target_dir_b.clone() + "/2019";
         let subdir2 = dir_has_file(&td_b, "2019-04-27");
         dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
         let file = dir_has_file(&subdir2, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
-        // check second file size too TODO
+        let file2 = dir_has_file(&subdir2, "myimg_001.jpg");
+        assert_eq!(204717, get_file_size(&file2).unwrap());
 
-        // Do the second copy again, this should not change any files
+        // Copy another different file with the same name, it should be kept separate
+        let target_dir_c = td.clone() + "./test_photo2";
+        let source_dir_c = td.clone() + "../src/test1c";
+        copier.copy(&source_dir_c, &target_dir_c).unwrap();
+        dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg", "myimg_002.jpg"]);
+        let file3 = dir_has_file(&subdir2, "myimg_002.jpg");
+        assert_eq!(96593, get_file_size(&file3).unwrap());
+
+        // Copy the file again that ended up as _001, it should not copy it again
+        copier.copy(&source_dir_b, &target_dir_b).unwrap();
+        dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg", "myimg_002.jpg"]);
+        // Check that all the file sizes are as before
+        assert_eq!(204636, get_file_size(&file).unwrap());
+        assert_eq!(204717, get_file_size(&file2).unwrap());
+        assert_eq!(96593, get_file_size(&file3).unwrap());
     }
 
     fn get_file_size(p: &str) -> GenResult<u64> {
