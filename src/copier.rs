@@ -133,6 +133,7 @@ impl Copier {
             let unix_ts = FileTime::from_unix_time(new_dt.timestamp(), 0);
             filetime::set_file_times(&target_file, unix_ts, unix_ts)?;
             Ok(())
+            // TODO can we somehow delete the file if the copy didn't fully succeed?
         } else {
             // TODO we should not need the GenError box
             Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, format!("Problem with file: {:?}", p.as_ref()))))
@@ -206,6 +207,12 @@ mod tests {
         let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4")?;
         let file_date3 = Strings::truncate_at_space(file_time3);
         assert_eq!("2018-11-29", file_date3);
+
+        // The following file makes the Exif reader complain
+        let no_md_filename2 = sd.clone() + "/NO_EXIF.JPG";
+        let modified2: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename2)?.modified()?);
+        let expected_dir2 = format!("{}", modified2.format("/%Y/%Y-%m-%d/"));
+        assert_files_equal(no_md_filename2, tdp1.clone() + &expected_dir2 + "NO_EXIF.JPG");
 
         Ok(())
     }

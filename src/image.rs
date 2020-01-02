@@ -13,38 +13,30 @@ impl PhotoHandler {
     pub fn get_date_time(p: &Path) -> String {
         let f = File::open(p).unwrap();
 
-        // TODO get rid of all the unwraps here
-        let reader = exif::Reader::new(&mut std::io::BufReader::new(&f)).unwrap();
+        // /* */ let reader = exif::Reader::new(&mut std::io::BufReader::new(&f)).unwrap();
+        if let Ok(reader) = exif::Reader::new(&mut std::io::BufReader::new(&f)) {
+            if let Some(v) = PhotoHandler::get_tag(&reader, exif::Tag::GPSTimeStamp) {
+                if let Some(date) = PhotoHandler::get_tag(&reader, exif::Tag::GPSDateStamp) {
+                    let date_time = date + " " + v.as_str();
+                    return Strings::truncate_at('.', date_time);
+                }
+            }
 
-        let v = PhotoHandler::get_tag(&reader, exif::Tag::GPSTimeStamp);
-        if let None = v {
-        } else {
-            let date = PhotoHandler::get_tag(&reader, exif::Tag::GPSDateStamp);
-            if let None = date {
-            } else {
-                let date_time = date.unwrap() + " " + v.unwrap().as_str();
-                return Strings::truncate_at('.', date_time);
+            if let Some(v) = PhotoHandler::get_tag(&reader, exif::Tag::DateTimeOriginal) {
+                return v;
+            }
+
+            if let Some(v) = PhotoHandler::get_tag(&reader, exif::Tag::DateTime) {
+                return v;
             }
         }
 
-        let v = PhotoHandler::get_tag(&reader, exif::Tag::DateTimeOriginal);
-        if let None = v {
+        if let Some(v) = PhotoHandler::get_whatsapp_filename_date(p) {
+            return v;
         } else {
-            return v.unwrap();
-        }
-
-        let v = PhotoHandler::get_tag(&reader, exif::Tag::DateTime);
-        if let None = v {
-            let v = PhotoHandler::get_whatsapp_filename_date(p);
-            if let None = v {
-                debug!("No Exif tag found for date, using file date instead.");
-                let md = f.metadata().unwrap();
-                return filetools::get_time_from_metadata(md).unwrap()
-            } else {
-                return v.unwrap();
-            }
-        } else {
-            v.unwrap()
+            debug!("No Exif tag found for date, using file date instead.");
+            let md = f.metadata().unwrap();
+            return filetools::get_time_from_metadata(md).unwrap()
         }
     }
 
