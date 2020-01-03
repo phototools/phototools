@@ -73,7 +73,7 @@ impl Copier {
                     // let f = File::open(&p).unwrap();
                     PhotoHandler::get_date_time(p.as_ref())
                 },
-            "mp4" | "m4v" => {
+            "mp4" | "m4v" | "mov" => {
                     // video
                     self.video_handler.get_date_time(&p)?
             },
