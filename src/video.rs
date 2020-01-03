@@ -8,14 +8,17 @@ use std::string::FromUtf8Error;
 use regex::Regex;
 
 pub struct VideoHandler {
-    pattern: Regex
+    pattern: Regex,
+    quicktime_pattern: Regex
 }
 
 impl VideoHandler {
     pub fn new() -> VideoHandler {
         VideoHandler {
             pattern: Regex::new(
-                r"creation_time\s+[:]\s+(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)[.]\d+Z").unwrap()
+                r"creation_time\s+[:]\s+(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)[.]\d+Z").unwrap(),
+            quicktime_pattern: Regex::new(
+                r"com.apple.quicktime.creationdate[:]\s+(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)+").unwrap()
         }
     }
 
@@ -32,18 +35,6 @@ impl VideoHandler {
             return Ok(d);
         }
         filetools::get_time_from_file(p.as_ref())
-        /////
-        // 
-        // 
-        // let x = match output {
-        //     Err(_) => filetools::get_time_from_file(p.as_ref()),
-        //     Ok(s) => match self.get_creationtime_from_string(s) {
-        //         Some(ct) => Ok(ct),
-        //         None => filetools::get_time_from_file(p.as_ref())
-        //     }
-        // };
-
-        // x
     }
 
     // TODO share with image via filetools?
@@ -62,6 +53,14 @@ impl VideoHandler {
     }
 
     fn get_creationtime_from_string(&self, s: String) -> Option<String> {
+        // First let's see if there is quicktime creationdate information, as on IPhone-recorded movies that is 
+        // more reliable than the 'creation_time' attribute...
+        for line in s.lines() {
+            if line.trim().starts_with("com.apple.quicktime.creationdate") {
+                return Some(self.parse_quicktime_creation_date(line.to_string()));
+            }
+        }
+        
         for line in s.lines() {
             if line.trim().starts_with("creation_time") {
                 return Some(self.parse_creation_time(line.to_string()));
@@ -69,6 +68,15 @@ impl VideoHandler {
         }
         
         None
+    }
+
+    fn parse_quicktime_creation_date(&self, s: String) -> String {
+        if let Some(q) = self.quicktime_pattern.captures(s.as_str()) {
+            let res = q[1].to_string() + " " + &q[2].to_string();
+            res
+        } else {
+            "".to_string()
+        }
     }
 
     fn parse_creation_time(&self, s: String) -> String {

@@ -77,8 +77,10 @@ impl Copier {
                     // video
                     self.video_handler.get_date_time(&p)?
             },
-            _ => "cannot handle".to_string()
-            // TODO handle properly, maybe log a warning...
+            _ => {
+                info!("Cannot handle {} - skipping.", p.as_ref().to_string_lossy());
+                return Ok(());
+            }
         };
 
         debug!("Found timestamp: {:?}", ts);
@@ -171,6 +173,7 @@ mod tests {
     #[test]
     fn test_copy() -> io::Result<()> {
         // TODO make sure different tests write to different locations
+        // TODO empty target directories before test run
         let td = get_target_dir();
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
@@ -326,6 +329,19 @@ mod tests {
         assert_eq!(204636, get_file_size(&file).unwrap());
         assert_eq!(204717, get_file_size(&file2).unwrap());
         assert_eq!(96593, get_file_size(&file3).unwrap());
+    }
+
+    #[test]
+    fn test_iphone_mov() {
+        let td = get_target_dir();
+        assert!(td.ends_with("/phototools/target/"));
+
+        let copier = Copier::new(0, false);
+        let sd = td.clone() + "../src/test2";
+        let tdp1 = td.clone() + "test_mov";
+        copier.copy(&sd, &tdp1).unwrap();
+
+        assert_files_equal(sd.clone() + "/FROM_IPHONE.MOV", tdp1.clone() + "/2018/2018-06-02/FROM_IPHONE.MOV");
     }
 
     fn get_file_size(p: &str) -> GenResult<u64> {
