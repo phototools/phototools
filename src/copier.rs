@@ -169,6 +169,7 @@ mod tests {
     use chrono::DateTime;
     use chrono::offset::Utc;
     use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_copy() -> io::Result<()> {
@@ -181,6 +182,7 @@ mod tests {
         let copier = Copier::new(0, false);
         let sd = td.clone() + "../src/test";
         let tdp1 = td.clone() + "test_photo";
+        ensure_dir_doesnt_exist(&tdp1);
         copier.copy(&sd, &tdp1).unwrap();
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
@@ -222,7 +224,6 @@ mod tests {
     
     #[test]
     fn test_copy_using_cp() -> io::Result<()> {
-        // TODO make sure different tests write to different locations
         let td = get_target_dir();
         assert!(td.ends_with("/phototools/target/"));
         println!("Target dir {} ", td);
@@ -230,6 +231,7 @@ mod tests {
         let copier = Copier::new(0, true);
         let sd = td.clone() + "../src/test";
         let tdp1 = td.clone() + "test_photo0";
+        ensure_dir_doesnt_exist(&tdp1);
         copier.copy(&sd, &tdp1).unwrap();
 
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
@@ -268,6 +270,7 @@ mod tests {
         let copier = Copier::new(100000, false);
         let sd = get_target_dir() + "../src/test";
         let td = get_target_dir() + "test_min_size";
+        ensure_dir_doesnt_exist(&td);
         copier.copy(&sd, &td).unwrap();
 
         let td0 = td + "/2019";
@@ -288,6 +291,7 @@ mod tests {
         let copier = Copier::new(0, false);
         let source_dir_a = td.clone() + "../src/test1a";
         let target_dir = td.clone() + "test_photo1";
+        ensure_dir_doesnt_exist(&target_dir);
         copier.copy(&source_dir_a, &target_dir).unwrap();
 
         let td0 = target_dir + "/2019";
@@ -299,14 +303,22 @@ mod tests {
         copier.copy(&source_dir_a, &td0).unwrap();
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
+    }
+
+    #[test]
+    fn test_dont_replace_same_file2() {
+        let td = get_target_dir();
+        let copier = Copier::new(0, false);
+        let source_dir_a = td.clone() + "../src/test1a";
 
         // Copy file from different directory. File has the same name, but different content
         // this should create a separate file 
-        let target_dir_b = td.clone() + "test_photo2";
-        copier.copy(&source_dir_a, &target_dir_b).unwrap();
+        let target_dir = td.clone() + "test_photo2";
+        ensure_dir_doesnt_exist(&target_dir);
+        copier.copy(&source_dir_a, &target_dir).unwrap();
         let source_dir_b = td.clone() + "../src/test1b";
-        copier.copy(&source_dir_b, &target_dir_b).unwrap();
-        let td_b = target_dir_b.clone() + "/2019";
+        copier.copy(&source_dir_b, &target_dir).unwrap();
+        let td_b = target_dir.clone() + "/2019";
         let subdir2 = dir_has_file(&td_b, "2019-04-27");
         dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg"]);
         let file = dir_has_file(&subdir2, "myimg.jpg");
@@ -323,7 +335,7 @@ mod tests {
         assert_eq!(96593, get_file_size(&file3).unwrap());
 
         // Copy the file again that ended up as _001, it should not copy it again
-        copier.copy(&source_dir_b, &target_dir_b).unwrap();
+        copier.copy(&source_dir_b, &target_dir).unwrap();
         dir_exact(&subdir2, &["myimg.jpg", "myimg_001.jpg", "myimg_002.jpg"]);
         // Check that all the file sizes are as before
         assert_eq!(204636, get_file_size(&file).unwrap());
@@ -339,9 +351,21 @@ mod tests {
         let copier = Copier::new(0, false);
         let sd = td.clone() + "../src/test2";
         let tdp1 = td.clone() + "test_mov";
+        ensure_dir_doesnt_exist(&tdp1);
         copier.copy(&sd, &tdp1).unwrap();
 
         assert_files_equal(sd.clone() + "/FROM_IPHONE.MOV", tdp1.clone() + "/2018/2018-06-02/FROM_IPHONE.MOV");
+    }
+
+    fn ensure_dir_doesnt_exist(p: &str) {
+        if let Ok(md) = fs::metadata(p) {
+            if md.is_dir() {
+                // rename
+                let ts = SystemTime::now();
+                let new_name = format!("{}_{}", p, ts.duration_since(UNIX_EPOCH).unwrap().as_secs());
+                fs::rename(p, new_name).unwrap();
+            }
+        }
     }
 
     fn get_file_size(p: &str) -> GenResult<u64> {
