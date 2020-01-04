@@ -97,6 +97,15 @@ impl Copier {
             let mut path = Path::new(&org_target_file);
             let mut target_file = org_target_file.clone();
             while path.exists() {
+                if let Ok(md) = path.metadata() {
+                    if md.len() == 0 {
+                        // Delete this empty file
+                        if let Ok(()) = fs::remove_file(path) {
+                            continue;
+                        }
+                    }
+                }
+
                 if Copier::identical_file(&p.as_ref(), &path) {
                     info!("Identical file already exists {}", target_file);
                     return Ok(());
@@ -292,15 +301,22 @@ mod tests {
         let source_dir_a = td.clone() + "../src/test1a";
         let target_dir = td.clone() + "test_photo1";
         ensure_dir_doesnt_exist(&target_dir);
+
+        // Create an empty file in the target directory, this should be overwritten because it's an empty file
+        let expected_dir = target_dir.clone() + "/2019/2019-04-27";
+        fs::create_dir_all(&expected_dir).unwrap();
+        let expected_file = expected_dir + "/myimg.jpg";
+        Command::new("touch").arg(expected_file).output().unwrap();
+
         copier.copy(&source_dir_a, &target_dir).unwrap();
 
-        let td0 = target_dir + "/2019";
+        let td0 = target_dir.clone() + "/2019";
         let subdir = dir_has_file(&td0, "2019-04-27");
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
         
         // Copy again, should not create another file
-        copier.copy(&source_dir_a, &td0).unwrap();
+        copier.copy(&source_dir_a, &target_dir).unwrap(); 
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
     }
@@ -326,6 +342,9 @@ mod tests {
         let file2 = dir_has_file(&subdir2, "myimg_001.jpg");
         assert_eq!(204717, get_file_size(&file2).unwrap());
 
+        // Create an empty file in the target directory, this should be overwritten because it's an empty file
+        let expected_file = subdir2.clone() + "/myimg_002.jpg";
+        Command::new("touch").arg(expected_file).output().unwrap();
         // Copy another different file with the same name, it should be kept separate
         let target_dir_c = td.clone() + "./test_photo2";
         let source_dir_c = td.clone() + "../src/test1c";
