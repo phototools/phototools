@@ -12,6 +12,20 @@ use std::process::Command;
 type GenError = Box<dyn std::error::Error>;
 pub type GenResult<T> = Result<T, GenError>;
 
+#[derive(Debug, PartialEq)]
+pub enum DateResult {
+    FromMetadata(String),
+    Inferred(String)
+}
+
+#[derive(Debug, PartialEq)]
+enum ResType {
+    Photo,
+    PhotoTSInferred,
+    Video,
+    VideoTSInferred
+}
+
 pub struct Copier {
     min_size: u64,
     shell_cp: bool,
@@ -66,16 +80,26 @@ impl Copier {
         let ext = p.as_ref().extension().unwrap().to_str().unwrap();
         let ext = ext.to_lowercase();
 
+        let mut res_type = ResType::Photo;
+        let mut has_exif = true;
         let ts = match ext.as_str() {
             "jpeg" |
             "jpg" => {
                     // photo
-                    // let f = File::open(&p).unwrap();
-                    PhotoHandler::get_date_time(p.as_ref())
+                    let (r, x) = PhotoHandler::get_date_time(p.as_ref());
+                    has_exif = x;
+                    match r {
+                        DateResult::FromMetadata(s) => s,
+                        DateResult::Inferred(s) => { res_type = ResType::PhotoTSInferred; s } 
+                    }
                 },
             "mp4" | "m4v" | "mov" => {
                     // video
-                    self.video_handler.get_date_time(&p)?
+                    let r = self.video_handler.get_date_time(&p)?;
+                    match r {
+                        DateResult::FromMetadata(s) => { res_type = ResType::Video; s },
+                        DateResult::Inferred(s) => { res_type = ResType::VideoTSInferred; s } 
+                    }
             },
             _ => {
                 info!("Cannot handle {} - skipping.", p.as_ref().to_string_lossy());
@@ -137,7 +161,10 @@ impl Copier {
             } else {
                 fs::copy(src_file, &target_file)?;
             }
-            
+           
+            if res_type == ResType::PhotoTSInferred {
+                PhotoHandler::set_exif_date_time(&target_file, &ts, !has_exif); // TODO check if exif was there or not
+            }
 
             debug!("Setting file date and time to: {}", ts);
             let new_dt = chrono::NaiveDateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")?;
@@ -181,6 +208,39 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
+
+    fn test_add_exif() -> io::Result<()> {
+        let td = get_target_dir();
+
+        let copier = Copier::new(0, false);
+        let sd = td.clone() + "../src/test3";
+        let tdp1 = td.clone() + "test_photo3a";
+        ensure_dir_doesnt_exist(&tdp1);
+        copier.copy(&sd, &tdp1).unwrap();
+
+        let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
+        let md0 = fs::metadata(&no_md_filename)?;
+        let created: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename)?.created()?);
+        let expected_dir = format!("{}", created.format("/%Y/%Y-%m-%d/"));
+
+        let p1 = tdp1.clone() + &expected_dir + "NO_METADATA.JPEG";
+        let md1 = fs::metadata(&p1)?;
+
+        assert_ne!(md0.len(), md1.len(), "Should have added EXIF metadata to the JPEG");
+
+        // Now copy the file again, since it has the EXIF data now, it should not get it again
+        PhotoHandler::set_exif_date_time(&p1, "2001:12:29-07:00:01", false);
+        let sd2 = tdp1.clone() + &expected_dir;
+        let tdp2 = td.clone() + "test_photo3b";
+        copier.copy(&sd2, &tdp2).unwrap();
+
+        let p2 = tdp2.clone() + "/2001/2001-12-29/NO_METADATA.JPEG";
+        assert_files_equal(&p1, &p2);
+        
+        Ok(())
+    }
+
+    #[test]
     fn test_copy() -> io::Result<()> {
         // TODO make sure different tests write to different locations
         // TODO empty target directories before test run
@@ -197,7 +257,8 @@ mod tests {
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
         let created: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename)?.created()?);
         let expected_dir = format!("{}", created.format("/%Y/%Y-%m-%d/"));
-        assert_files_equal(no_md_filename, tdp1.clone() + &expected_dir + "NO_METADATA.JPEG");
+        assert!(fs::metadata(tdp1.clone() + &expected_dir + "NO_METADATA.JPEG")?.len() > 0);
+        // TODO check that the above file is actually a valid JPEG file, e.g. by obtaining EXIF
 
         let no_md_filename1 = sd.clone() + "/NO_METADATA.M4V";
         let created1: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename1)?.created()?);
@@ -211,7 +272,8 @@ mod tests {
         assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019/2019-04-27/gps-date copy.jpg");
 
         // check whatsapp images for file time.
-        assert_files_equal(sd.clone() + "/IMG-20170701-WA0002.jpg", tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg");
+        assert!(fs::metadata(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?.len() > 0);
+        // TODO check that the above file is actually a valid JPEG file, e.g. by obtaining EXIF
         let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?;
         let file_date = Strings::truncate_at_space(file_time2);
         assert_eq!("2017-07-01", file_date);
@@ -226,7 +288,8 @@ mod tests {
         let no_md_filename2 = sd.clone() + "/NO_EXIF.JPG";
         let modified2: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename2)?.modified()?);
         let expected_dir2 = format!("{}", modified2.format("/%Y/%Y-%m-%d/"));
-        assert_files_equal(no_md_filename2, tdp1.clone() + &expected_dir2 + "NO_EXIF.JPG");
+        assert!(fs::metadata(tdp1.clone() + &expected_dir2 + "NO_EXIF.JPG")?.len() > 0);
+        // TODO check that the above file is actually a valid JPEG file, e.g. by obtaining EXIF
 
         Ok(())
     }
@@ -246,7 +309,8 @@ mod tests {
         let no_md_filename = sd.clone() + "/NO_METADATA.JPEG";
         let created: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename)?.created()?);
         let expected_dir = format!("{}", created.format("/%Y/%Y-%m-%d/"));
-        assert_files_equal(no_md_filename, tdp1.clone() + &expected_dir + "NO_METADATA.JPEG");
+        assert!(fs::metadata(tdp1.clone() + &expected_dir + "NO_METADATA.JPEG")?.len() > 0);
+        // TODO check that the above file is actually a valid JPEG file, e.g. by obtaining EXIF
 
         let no_md_filename1 = sd.clone() + "/NO_METADATA.M4V";
         let created1: DateTime<Utc> = DateTime::from(fs::metadata(&no_md_filename1)?.created()?);
@@ -260,7 +324,8 @@ mod tests {
         assert_files_equal(sd.clone() + "/gps-date copy.jpg", tdp1.clone() + "/2019/2019-04-27/gps-date copy.jpg");
 
         // check whatsapp images for file time.
-        assert_files_equal(sd.clone() + "/IMG-20170701-WA0002.jpg", tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg");
+        assert!(fs::metadata(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?.len() > 0);
+        // TODO check that the above file is actually a valid JPEG file, e.g. by obtaining EXIF
         let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?;
         let file_date = Strings::truncate_at_space(file_time2);
         assert_eq!("2017-07-01", file_date);

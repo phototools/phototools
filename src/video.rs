@@ -1,3 +1,4 @@
+use crate::copier::DateResult;
 use crate::filetools;
 
 use log::debug;
@@ -22,19 +23,24 @@ impl VideoHandler {
         }
     }
 
-    pub fn get_date_time<P: AsRef<Path>>(&self, p: P) -> io::Result<String> {
+    pub fn get_date_time<P: AsRef<Path>>(&self, p: P) -> io::Result<DateResult> {
         let output = VideoHandler::get_ffmpeg_output(p.as_ref());
 
         if let Ok(ffmpeg_output) = output {
             if let Some(ct) = self.get_creationtime_from_string(ffmpeg_output) {
-                return Ok(ct);
+                return Ok(DateResult::FromMetadata(ct));
             }
         }
 
         if let Some(d) = VideoHandler::get_whatsapp_filename_date(p.as_ref()) {
-            return Ok(d);
+            return Ok(DateResult::Inferred(d));
         }
-        filetools::get_time_from_file(p.as_ref())
+
+        let res = filetools::get_time_from_file(p.as_ref());
+        match res {
+            Ok(r) => Ok(DateResult::Inferred(r)),
+            Err(e) => Err(e)
+        }
     }
 
     // TODO share with image via filetools?
@@ -114,7 +120,8 @@ mod tests {
     fn test_video_date_time_metadata() {
         let s = testtools::get_base_dir() + "src/test/creation-time.mp4";
         let p1 = Path::new(s.as_str());
-        assert_eq!("2019-05-01 17:40:16", VideoHandler::new().get_date_time(p1).unwrap());
+        assert_eq!(DateResult::FromMetadata(String::from("2019-05-01 17:40:16")),
+            VideoHandler::new().get_date_time(p1).unwrap());
     }
 
     #[test]
@@ -124,7 +131,8 @@ mod tests {
         let md = fs::metadata(&filename)?;
         let created: DateTime<Utc> = DateTime::from(md.created()?);
         let expected = format!("{}", created.format("%Y-%m-%d %T"));
-        assert_eq!(expected, VideoHandler::new().get_date_time(p1)?);
+        assert_eq!(DateResult::Inferred(expected), 
+            VideoHandler::new().get_date_time(p1)?);
         Ok(())
     }
 }
