@@ -11,6 +11,8 @@ use std::process;
 
 type GenError = Box<dyn std::error::Error>;
 
+const DEFAULT_FILESIZE_MIN: &str = "500";
+
 fn main() {
     let matches = App::new("Photo Tools")
         .version("0.1")
@@ -21,7 +23,7 @@ fn main() {
             .about("Copies photos and videos from one directory to a target directory \
                 where all the items are organized in target folders based on date taken.")
             .arg(Arg::with_name("minimum size").short("b").long("min-size").value_name("BYTES")
-                .help("When copying only consider photos and videos of at least this size")
+                .help(format!("{}{}", "When copying only consider photos and videos of at least this size, default: ", DEFAULT_FILESIZE_MIN).as_str())
                 .takes_value(true))
             .arg(Arg::with_name("source directory").short("s").long("source-dir").value_name("DIR")
                 .required(true)
@@ -74,7 +76,7 @@ struct CopyConfig {
 
 impl CopyConfig {
     fn from(copy_matches: &ArgMatches) -> Result<CopyConfig, GenError> {
-        let min_size_str = copy_matches.value_of("minimum size").unwrap_or("500");
+        let min_size_str = copy_matches.value_of("minimum size").unwrap_or(DEFAULT_FILESIZE_MIN);
         let src_dir = copy_matches.value_of("source directory").unwrap();
         let dst_dir = copy_matches.value_of("destination directory").unwrap();
         let shell_cp = copy_matches.occurrences_of("cp copy") > 0;

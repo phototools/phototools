@@ -150,7 +150,11 @@ impl Copier {
                 counter += 1;
             }
 
-            info!("Copying {} to {}", src_file, target_file);
+            let mut add_txt = "";
+            if res_type == ResType::PhotoTSInferred {
+                add_txt = ", will update exif."
+            }
+            info!("Copying {} to {}{}", src_file, target_file, add_txt);
 
             if self.shell_cp {
                 Command::new("cp")
