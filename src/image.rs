@@ -19,7 +19,11 @@ impl PhotoHandler {
             if let Some(v) = PhotoHandler::get_tag(&reader, exif::Tag::GPSTimeStamp) {
                 if let Some(date) = PhotoHandler::get_tag(&reader, exif::Tag::GPSDateStamp) {
                     let date_time = date + " " + v.as_str();
-                    return (DateResult::FromMetadata(Strings::truncate_at('.', date_time)), true);
+
+                    let valid_dt = chrono::NaiveDateTime::parse_from_str(&date_time, "%Y-%m-%d %H:%M:%S");
+                    if valid_dt.is_ok() {
+                        return (DateResult::FromMetadata(Strings::truncate_at('.', date_time)), true);
+                    }
                 }
             }
 
