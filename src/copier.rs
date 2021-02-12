@@ -77,6 +77,11 @@ impl Copier {
     }
 
     fn copy_file<P: AsRef<Path>>(&self, p: P, target_dir: &Path) -> GenResult<()> {
+        if p.as_ref().file_name().unwrap().to_str().unwrap().starts_with(".") {
+            info!("Skipping hidden file: {}", p.as_ref().to_string_lossy());
+            return Ok(());
+        }
+
         let ext = p.as_ref().extension().unwrap().to_str().unwrap();
         let ext = ext.to_lowercase();
 
