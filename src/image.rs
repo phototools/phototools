@@ -3,6 +3,7 @@ use crate::filetools;
 use crate::strings::Strings;
 
 use log::debug;
+use std::io::BufReader;
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
@@ -14,8 +15,10 @@ impl PhotoHandler {
     // TODO refactor to get_date() as the time cannot always be obtained and we don't need it
     pub fn get_date_time(p: &Path) -> (DateResult, bool) {
         let f = File::open(p).unwrap();
+        let mut bufreader = BufReader::new(&f);
+        let exifreader = exif::Reader::new();
 
-        if let Ok(reader) = exif::Reader::new(&mut std::io::BufReader::new(&f)) {
+        if let Ok(reader) = exifreader.read_from_container(&mut bufreader) {
             if let Some(v) = PhotoHandler::get_tag(&reader, exif::Tag::GPSTimeStamp) {
                 if let Some(date) = PhotoHandler::get_tag(&reader, exif::Tag::GPSDateStamp) {
                     let date_time = date + " " + v.as_str();
@@ -65,8 +68,8 @@ impl PhotoHandler {
         None
     }
 
-    fn get_tag(reader: &exif::Reader, tag: exif::Tag) -> Option<String> {
-        let field = reader.get_field(tag, false);
+    fn get_tag(reader: &exif::Exif, tag: exif::Tag) -> Option<String> {
+        let field = reader.get_field(tag, exif::In::PRIMARY);
         if let None = field {
             None
         } else {
