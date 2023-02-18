@@ -89,7 +89,8 @@ impl Copier {
         let mut has_exif = true;
         let ts = match ext.as_str() {
             "jpeg" |
-            "jpg" => {
+            "jpg" |
+            "heic" => {
                     // photo
                     let (r, x) = PhotoHandler::get_date_time(p.as_ref());
                     has_exif = x;
@@ -292,6 +293,9 @@ mod tests {
         let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4")?;
         let file_date3 = Strings::truncate_at_space(file_time3);
         assert_eq!("2018-11-29", file_date3);
+
+        assert_files_equal(sd.clone() + "/heic/image1.heic", 
+            tdp1.clone() + "/2023/2023-02-18/image1.heic");
 
         // The following file makes the Exif reader complain
         let no_md_filename2 = sd.clone() + "/NO_EXIF.JPG";

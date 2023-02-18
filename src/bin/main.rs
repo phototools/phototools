@@ -22,7 +22,7 @@ fn cli() -> Command {
         .arg_required_else_help(true)
         .arg(arg!(--"verbose").short('v')
             .help("Set level of verbosity to verbose"))
-        .arg(arg!(--"very-verbose").alias("w")
+        .arg(arg!(--"very-verbose").short('w')
             .help("Set level of verbosity to very verbose"))
         .subcommand(
             Command::new("copy")
