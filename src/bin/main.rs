@@ -41,7 +41,7 @@ fn cli() -> Command {
                 .arg(arg!(--"min-size" <BYTES>)
                     .short('b')
                     .help("When copying only consider photos and videos of at least this size")
-                    .value_parser(value_parser!(u16))
+                    .value_parser(value_parser!(u32))
                     .default_value(DEFAULT_FILESIZE_MIN))
                 .arg(arg!(--"cp-copy")
                     .short('c')
@@ -105,7 +105,7 @@ impl CopyConfig {
     fn from(copy_matches: &ArgMatches) -> Result<CopyConfig, GenError> {
         let src_dir = copy_matches.get_one::<PathBuf>("source-dir").unwrap();
         let dst_dir = copy_matches.get_one::<PathBuf>("dest-dir").unwrap();        
-        let min_size = copy_matches.get_one::<u16>("min-size").unwrap();
+        let min_size = copy_matches.get_one::<u32>("min-size").unwrap();
         let shell_cp = copy_matches.get_flag("cp-copy");
 
         Ok(CopyConfig {
