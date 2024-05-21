@@ -179,7 +179,7 @@ impl Copier {
 
             debug!("Setting file date and time to: {}", ts);
             let new_dt = chrono::NaiveDateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")?;
-            let unix_ts = FileTime::from_unix_time(new_dt.timestamp(), 0);
+            let unix_ts = FileTime::from_unix_time(new_dt.and_utc().timestamp(), 0);
             filetime::set_file_times(&target_file, unix_ts, unix_ts)?;
             Ok(())
             // TODO can we somehow delete the file if the copy didn't fully succeed?
