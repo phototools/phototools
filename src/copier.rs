@@ -35,7 +35,7 @@ pub struct Copier {
 impl Copier {
     pub fn new(min_size: u64, shell_cp: bool) -> Copier {
         Copier {
-            min_size, 
+            min_size,
             shell_cp,
             video_handler: VideoHandler::new()
         }
@@ -67,7 +67,7 @@ impl Copier {
         let p = direntry.path();
 
         let file_size = self.file_size(&p);
-        debug!("File {:?} size {}", p, file_size); 
+        debug!("File {:?} size {}", p, file_size);
         if file_size >= self.min_size {
             self.copy_file(p, target_dir)?;
         } else {
@@ -90,13 +90,14 @@ impl Copier {
         let ts = match ext.as_str() {
             "jpeg" |
             "jpg" |
-            "heic" => {
+            "heic" |
+            "dng" => {
                     // photo
                     let (r, x) = PhotoHandler::get_date_time(p.as_ref());
                     has_exif = x;
                     match r {
                         DateResult::FromMetadata(s) => s,
-                        DateResult::Inferred(s) => { res_type = ResType::PhotoTSInferred; s } 
+                        DateResult::Inferred(s) => { res_type = ResType::PhotoTSInferred; s }
                     }
                 },
             "mp4" | "m4v" | "mov" => {
@@ -104,7 +105,7 @@ impl Copier {
                     let r = self.video_handler.get_date_time(&p)?;
                     match r {
                         DateResult::FromMetadata(s) => { res_type = ResType::Video; s },
-                        DateResult::Inferred(s) => { res_type = ResType::VideoTSInferred; s } 
+                        DateResult::Inferred(s) => { res_type = ResType::VideoTSInferred; s }
                     }
             },
             _ => {
@@ -171,7 +172,7 @@ impl Copier {
             } else {
                 fs::copy(src_file, &target_file)?;
             }
-           
+
             if res_type == ResType::PhotoTSInferred {
                 PhotoHandler::set_exif_date_time(&target_file, &ts, !has_exif); // TODO check if exif was there or not
             }
@@ -246,7 +247,7 @@ mod tests {
 
         let p2 = tdp2.clone() + "/2001/2001-12-29/NO_METADATA.JPEG";
         assert_files_equal(&p1, &p2);
-        
+
         Ok(())
     }
 
@@ -287,15 +288,17 @@ mod tests {
         let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?;
         let file_date = Strings::truncate_at_space(file_time2);
         assert_eq!("2017-07-01", file_date);
-        
-        assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4", 
+
+        assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4",
             tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4");
         let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4")?;
         let file_date3 = Strings::truncate_at_space(file_time3);
         assert_eq!("2018-11-29", file_date3);
 
-        assert_files_equal(sd.clone() + "/heic/image1.heic", 
+        assert_files_equal(sd.clone() + "/heic/image1.heic",
             tdp1.clone() + "/2023/2023-02-18/image1.heic");
+        assert_files_equal(sd.clone() + "/raw/samsung_raw_photo.dng",
+            tdp1.clone() + "/2024/2024-05-10/samsung_raw_photo.dng");
 
         // The following file makes the Exif reader complain
         let no_md_filename2 = sd.clone() + "/NO_EXIF.JPG";
@@ -306,7 +309,7 @@ mod tests {
 
         Ok(())
     }
-    
+
     #[test]
     fn test_copy_using_cp() -> io::Result<()> {
         let td = get_target_dir();
@@ -342,8 +345,8 @@ mod tests {
         let file_time2 = filetools::get_time_from_file(tdp1.clone() + "/2017/2017-07-01/IMG-20170701-WA0002.jpg")?;
         let file_date = Strings::truncate_at_space(file_time2);
         assert_eq!("2017-07-01", file_date);
-        
-        assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4", 
+
+        assert_files_equal(sd.clone() + "/subdir/VID-20181129-WA9876.mp4",
             tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4");
         let file_time3 = filetools::get_time_from_file(tdp1.clone() + "/2018/2018-11-29/VID-20181129-WA9876.mp4")?;
         let file_date3 = Strings::truncate_at_space(file_time3);
@@ -392,9 +395,9 @@ mod tests {
         let subdir = dir_has_file(&td0, "2019-04-27");
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
-        
+
         // Copy again, should not create another file
-        copier.copy(&source_dir_a, &target_dir).unwrap(); 
+        copier.copy(&source_dir_a, &target_dir).unwrap();
         let file = dir_has_file(&subdir, "myimg.jpg");
         assert_eq!(204636, get_file_size(&file).unwrap());
     }
@@ -406,7 +409,7 @@ mod tests {
         let source_dir_a = td.clone() + "../src/test1a";
 
         // Copy file from different directory. File has the same name, but different content
-        // this should create a separate file 
+        // this should create a separate file
         let target_dir = td.clone() + "test_photo2";
         ensure_dir_doesnt_exist(&target_dir);
         copier.copy(&source_dir_a, &target_dir).unwrap();
@@ -490,7 +493,7 @@ mod tests {
         assert_eq!(0, found.len(), "Not all expected files found {:?}", found);
 
         if check_filenum {
-            assert_eq!(names.len(), paths.len(), "Incorrect number of files found. Expected: {:?} was {:?}", 
+            assert_eq!(names.len(), paths.len(), "Incorrect number of files found. Expected: {:?} was {:?}",
                 names, paths);
         }
     }

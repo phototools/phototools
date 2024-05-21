@@ -81,12 +81,12 @@ impl PhotoHandler {
     }
 
     pub fn set_exif_date_time(file_name: & str, time_stamp: &str, create_exif: bool) {
-        let ts = format!("-ts{}:{}:{}-{}:{}:{}", 
+        let ts = format!("-ts{}:{}:{}-{}:{}:{}",
             &time_stamp[0..4], &time_stamp[5..7], &time_stamp[8..10],
             &time_stamp[11..13], &time_stamp[14..16], &time_stamp[17..19]);
         let mut jh = Command::new("jhead");
         let mut cmd = jh.arg(ts);
-       
+
         if create_exif {
             cmd = cmd.arg("-mkexif");
         }
@@ -102,23 +102,32 @@ mod tests {
     use chrono::offset::Utc;
     use std::io;
     use std::fs;
-    
+
     #[test]
     fn test_photo_gps_date_time() {
         let s = String::from(testtools::get_base_dir() + "src/test/gps-date.jpg");
         let p = Path::new(&s);
-        assert_eq!((DateResult::FromMetadata(String::from("2019-04-27 14:08:01")), true), 
+        assert_eq!((DateResult::FromMetadata(String::from("2019-04-27 14:08:01")), true),
             PhotoHandler::get_date_time(&p));
     }
 
     #[test]
-    fn test_photo_date_time() -> io::Result<()> { 
+    fn test_photo_date_time() -> io::Result<()> {
         let filename = testtools::get_base_dir() + "src/test/NO_METADATA.JPEG";
         let md = fs::metadata(&filename)?;
         let created: DateTime<Utc> = DateTime::from(md.created()?);
         let expected = format!("{}", created.format("%Y-%m-%d %T"));
-        assert_eq!((DateResult::Inferred(expected), false), 
+        assert_eq!((DateResult::Inferred(expected), false),
             PhotoHandler::get_date_time(Path::new(&filename)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_raw_photo_timestamp() -> io::Result<()> {
+        let filename = testtools::get_base_dir() + "src/test/raw/samsung_raw_photo.dng";
+        let p = Path::new(&filename);
+        assert_eq!(DateResult::FromMetadata(String::from("2024-05-10 22:57:40")),
+            PhotoHandler::get_date_time(&p).0);
         Ok(())
     }
 }
